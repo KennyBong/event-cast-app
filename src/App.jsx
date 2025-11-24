@@ -5,6 +5,7 @@ import AttendeeView from './views/AttendeeView';
 import StageView from './views/StageView';
 import ModeratorView from './views/ModeratorView';
 import AdminView from './views/AdminView';
+import RecapView from './views/RecapView';
 import { AdminLogin, ModeratorLogin } from './components/Login';
 
 const StageSetup = ({ onLaunch }) => {
@@ -58,9 +59,11 @@ export default function App() {
     const cleanPath = window.location.pathname.replace(/^\/+/, '').replace(/\/+$/, '');
     const parts = cleanPath.split('/');
     const firstPart = parts[0];
+
     if (firstPart === 'admin') setRoute({ view: 'admin-login' });
     else if (firstPart === 'moderator') setRoute({ view: 'mod-login' });
     else if (firstPart === 'stage') { const slug = parts[1]; if (slug) setRoute({ view: 'stage', data: slug }); else setRoute({ view: 'stage-setup' }); }
+    else if (firstPart === 'recap') { const slug = parts[1]; if (slug) setRoute({ view: 'recap', data: slug }); }
     else if (cleanPath !== '') setRoute({ view: 'attendee', data: cleanPath });
     else setRoute({ view: 'admin-login' });
   }, []);
@@ -88,6 +91,7 @@ export default function App() {
   }
   if (route.view === 'stage-setup') return <StageSetup onLaunch={(slug) => window.location.href = `/stage/${slug}`} />;
   if (route.view === 'stage') return <StageView customerId={route.data} />;
+  if (route.view === 'recap') return <RecapView customerId={route.data} />;
   if (route.view === 'attendee') return <AttendeeView customerId={route.data} user={user} />;
 
   return <div>404 Not Found</div>;

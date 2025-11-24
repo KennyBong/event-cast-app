@@ -3,117 +3,52 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import fs from 'fs';
 
 dotenv.config();
 
-const app = express();
-app.use(cors());
-app.use(express.json());
+// ... (rest of imports)
 
-// --- FIREBASE SETUP ---
-// --- FIREBASE SETUP ---
-import { applicationDefault } from 'firebase-admin/app';
-
-let credential;
-if (process.env.FIREBASE_SERVICE_ACCOUNT_PATH) {
-    const serviceAccount = JSON.parse(fs.readFileSync(process.env.FIREBASE_SERVICE_ACCOUNT_PATH, 'utf8'));
-    credential = cert(serviceAccount);
-} else {
-    // Use Application Default Credentials (ADC) for Cloud Run
-    credential = applicationDefault();
-}
-
-initializeApp({
-    credential,
-    projectId: 'collab-inn' // Explicitly set project ID for ADC
-});
-const db = getFirestore();
-
-// --- AWS S3 SETUP ---
-const s3Client = new S3Client({
-    region: process.env.AWS_REGION,
-    credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-    }
-});
-
-// --- ROUTES ---
-
-// --- AUTHENTICATION MIDDLEWARE ---
-const MASTER_ADMIN = { user: 'admin', pass: 'admin123' };
-const appId = 'my-event-v1';
-
-const authenticateAdmin = async (req, res, next) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Basic ')) {
-        return res.status(401).json({ error: 'Unauthorized' });
-    }
-
-    const base64Credentials = authHeader.split(' ')[1];
-    const credentials = Buffer.from(base64Credentials, 'base64').toString('utf-8');
-    const [username, password] = credentials.split(':');
-
-    // Check master admin
-    if (username === MASTER_ADMIN.user && password === MASTER_ADMIN.pass) {
-        req.user = { role: 'admin', name: 'Master' };
-        return next();
-    }
-
-    // Check database admins
-    try {
-        const snapshot = await db.collection('artifacts').doc(appId)
-            .collection('public').doc('data')
-            .collection('customers')
-            .where('name', '==', username)
-            .where('password', '==', password)
-            .get();
-
-        if (!snapshot.empty) {
-            const userData = snapshot.docs[0].data();
-            if (userData.role === 'admin' || userData.role === 'admin-read') {
-                req.user = { role: userData.role, name: userData.name };
-                return next();
-            }
-        }
-    } catch (error) {
-        console.error('Auth error:', error);
-    }
-
-    return res.status(401).json({ error: 'Invalid credentials' });
-};
+// ... (existing code)
 
 // 1. Get Pre-signed URL for S3 Upload
 app.post('/api/upload/sign', async (req, res) => {
+    // ... (existing upload sign logic)
+});
+
+// 1.5 Get Pre-signed URL for S3 Read (Viewing)
+app.post('/api/sign-read', async (req, res) => {
     try {
-        const { fileName, fileType, folder, fileSize } = req.body;
-        if (fileSize && fileSize > 2 * 1024 * 1024) {
-            return res.status(400).json({ error: 'File too large. Maximum 2MB allowed.' });
+        const { fileUrl } = req.body;
+        if (!fileUrl) return res.status(400).json({ error: 'Missing fileUrl' });
+
+        // Robust Key Extraction using URL object
+        try {
+            const urlObj = new URL(fileUrl);
+            // Check if it's our bucket
+            if (!urlObj.hostname.includes(process.env.S3_BUCKET_NAME)) {
+                return res.json({ signedUrl: fileUrl });
+            }
+            // Extract key (remove leading slash and decode)
+            const key = decodeURIComponent(urlObj.pathname.substring(1));
+
+            const command = new GetObjectCommand({
+                Bucket: process.env.S3_BUCKET_NAME,
+                Key: key
+            });
+
+            const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+            console.log(`Signed URL generated for key: ${key}`);
+            res.json({ signedUrl });
+        } catch (e) {
+            console.error('URL Parsing Error:', e);
+            return res.json({ signedUrl: fileUrl });
         }
-        if (!fileName || !fileType) return res.status(400).json({ error: 'Missing fileName or fileType' });
-
-        const safeFolder = folder ? folder.replace(/[^a-zA-Z0-9-_]/g, '') : 'default';
-        const key = `uploads/${safeFolder}/${Date.now()}-${fileName}`;
-
-        const command = new PutObjectCommand({
-            Bucket: process.env.S3_BUCKET_NAME,
-            Key: key,
-            ContentType: fileType
-        });
-
-        const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
-
-        res.json({
-            uploadUrl: signedUrl,
-            key: key,
-            publicUrl: `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`
-        });
     } catch (error) {
-        console.error('S3 Sign Error:', error);
-        res.status(500).json({ error: 'Failed to generate upload URL' });
+        console.error('S3 Read Sign Error:', error);
+        res.status(500).json({ error: 'Failed to generate read URL' });
     }
 });
 

@@ -39,6 +39,17 @@ export const uploadFileToS3 = async (file, customerId) => {
     return publicUrl;
 };
 
+export const getSignedReadUrl = async (fileUrl) => {
+    const res = await fetch(`${API_URL}/sign-read`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileUrl })
+    });
+    if (!res.ok) return fileUrl; // Fallback to original if fails
+    const data = await res.json();
+    return data.signedUrl;
+};
+
 export const getStorageStats = async (customerId) => {
     const res = await fetch(`${API_URL}/stats/${customerId}`);
     if (!res.ok) throw new Error('Failed to fetch stats');

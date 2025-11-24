@@ -104,8 +104,8 @@ const AttendeeView = ({ customerId, user }) => {
         const file = e.target.files[0];
         if (!file) return;
 
-        if (file.size > 2 * 1024 * 1024) {
-            alert("Image is too large (Max 2MB).");
+        if (file.size > 20 * 1024 * 1024) {
+            alert("Image is too large (Max 20MB).");
             return;
         }
 
@@ -118,7 +118,7 @@ const AttendeeView = ({ customerId, user }) => {
         const img = new Image();
         img.onload = async () => {
             if (img.width >= img.height) {
-                const resizedFile = await resizeImage(file, 1500);
+                const resizedFile = await resizeImage(file, 2160);
                 applyImage(resizedFile);
             } else {
                 setTempImgSrc(objectUrl);
@@ -214,7 +214,7 @@ const AttendeeView = ({ customerId, user }) => {
                 </div>
             </div>
             {toast.msg && <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-full shadow-xl font-bold text-white animate-bounce ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}>{String(toast.msg)}</div>}
-            <div className="flex-1 overflow-y-auto p-4 pb-24">
+            <div className="flex-1 overflow-y-auto p-4">
                 <div className="max-w-md mx-auto space-y-4">
                     <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
                         <label className="block text-sm font-bold text-gray-500 mb-1">Message <span className="text-red-500">*</span></label>
@@ -236,6 +236,12 @@ const AttendeeView = ({ customerId, user }) => {
                         <label className="block text-sm font-bold text-gray-500 mb-1">Your Name</label>
                         <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Guest" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-bold text-gray-800" />
                     </div>
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                        <label className="block text-sm font-bold text-gray-500 mb-2">React</label>
+                        <div className="flex justify-between gap-2">
+                            {EMOJIS.map(e => (<button key={e} onClick={() => sendEmoji(e)} className="text-2xl w-10 h-10 flex-shrink-0 flex items-center justify-center bg-gray-100 rounded-full hover:bg-blue-100 hover:scale-110 transition">{e}</button>))}
+                        </div>
+                    </div>
                     <button onClick={handleSubmit} disabled={isSubmitting || cooldown > 0} className={`w-full py-4 rounded-xl font-bold text-white text-lg shadow-lg transform transition active:scale-95 flex items-center justify-center gap-2 ${isSubmitting || cooldown > 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-pink-600 hover:bg-pink-500'}`}>{isSubmitting ? 'Sending...' : cooldown > 0 ? `Wait ${cooldown}s` : 'Send to Stage'}</button>
                     {history.length > 0 && (
                         <div className="mt-6 pt-6 border-t border-gray-200">
@@ -245,11 +251,7 @@ const AttendeeView = ({ customerId, user }) => {
                     )}
                 </div>
             </div>
-            <div className="absolute bottom-6 left-4 right-4 rounded-2xl bg-white/90 backdrop-blur border border-gray-200 p-3 pb-3 shadow-2xl safe-area-pb z-50">
-                <div className="flex justify-between gap-2 overflow-x-auto no-scrollbar w-full px-2">
-                    {EMOJIS.map(e => (<button key={e} onClick={() => sendEmoji(e)} className="text-2xl w-10 h-10 flex-shrink-0 flex items-center justify-center bg-gray-100 rounded-full hover:bg-blue-100 hover:scale-110 transition">{e}</button>))}
-                </div>
-            </div>
+
             {/* CSS STYLES INLINE */}
             <style>{`
           @keyframes blast-up { 
