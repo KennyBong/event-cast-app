@@ -51,6 +51,7 @@ const AttendeeView = ({ customerId, user }) => {
     const [cooldown, setCooldown] = useState(0);
     const [toast, setToast] = useState({ type: '', msg: '' });
     const [history, setHistory] = useState([]);
+    const [emojiCooldown, setEmojiCooldown] = useState(false);
 
     // Cropper State
     const [showCropper, setShowCropper] = useState(false);
@@ -62,18 +63,35 @@ const AttendeeView = ({ customerId, user }) => {
             setIsValidSession(false);
             return;
         }
+
+        // Set timeout to prevent infinite loading
+        const timeout = setTimeout(() => {
+            setIsValidSession(false);
+        }, 5000);
+
         const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'customers', customerId);
-        const unsub = onSnapshot(docRef, (docSnap) => {
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                if (data.disabled) setIsValidSession(false);
-                else {
-                    setIsValidSession(true);
-                    setSessionData(data);
+        const unsub = onSnapshot(
+            docRef,
+            (docSnap) => {
+                clearTimeout(timeout);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    if (data.disabled) setIsValidSession(false);
+                    else {
+                        setIsValidSession(true);
+                        setSessionData(data);
+                    }
+                } else {
+                    setIsValidSession(false);
                 }
-            } else setIsValidSession(false);
-        });
-        return () => unsub();
+            },
+            (error) => {
+                clearTimeout(timeout);
+                console.error('Firestore error:', error);
+                setIsValidSession(false);
+            }
+        );
+        return () => { unsub(); clearTimeout(timeout); };
     }, [customerId]);
 
     useEffect(() => {
@@ -86,8 +104,8 @@ const AttendeeView = ({ customerId, user }) => {
         const file = e.target.files[0];
         if (!file) return;
 
-        if (file.size > 15 * 1024 * 1024) {
-            alert("Image is too large (Max 15MB).");
+        if (file.size > 2 * 1024 * 1024) {
+            alert("Image is too large (Max 2MB).");
             return;
         }
 
@@ -174,8 +192,13 @@ const AttendeeView = ({ customerId, user }) => {
     };
 
     const sendEmoji = (emoji) => {
+        if (emojiCooldown) return;
+
         sendEmojiSocket(customerId, emoji);
         showToast('success', `Sent ${emoji}`);
+
+        setEmojiCooldown(true);
+        setTimeout(() => setEmojiCooldown(false), 500);
     };
 
     if (isValidSession === false) return <div className="h-screen bg-gray-900 flex items-center justify-center text-white p-6"><AlertCircle size={48} className="text-red-500 mb-4" /><div className="text-xl">Event Not Found</div></div>;
@@ -213,7 +236,7 @@ const AttendeeView = ({ customerId, user }) => {
                         <label className="block text-sm font-bold text-gray-500 mb-1">Your Name</label>
                         <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Guest" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-bold text-gray-800" />
                     </div>
-                    <button onClick={handleSubmit} disabled={isSubmitting || cooldown > 0} className={`w-full py-4 rounded-xl font-bold text-white text-lg shadow-lg transform transition active:scale-95 flex items-center justify-center gap-2 ${isSubmitting || cooldown > 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:brightness-110'}`}>{isSubmitting ? 'Sending...' : cooldown > 0 ? `Wait ${cooldown}s` : 'Send to Stage'}</button>
+                    <button onClick={handleSubmit} disabled={isSubmitting || cooldown > 0} className={`w-full py-4 rounded-xl font-bold text-white text-lg shadow-lg transform transition active:scale-95 flex items-center justify-center gap-2 ${isSubmitting || cooldown > 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-pink-600 hover:bg-pink-500'}`}>{isSubmitting ? 'Sending...' : cooldown > 0 ? `Wait ${cooldown}s` : 'Send to Stage'}</button>
                     {history.length > 0 && (
                         <div className="mt-6 pt-6 border-t border-gray-200">
                             <h3 className="text-xs font-bold text-gray-400 uppercase mb-2">Recent Activity</h3>

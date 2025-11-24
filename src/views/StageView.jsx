@@ -32,18 +32,35 @@ const StageView = ({ customerId }) => {
 
     useEffect(() => {
         if (!customerId || typeof customerId !== 'string' || customerId.includes('/')) { setIsValidSession(false); return; }
+
+        // Set timeout to prevent infinite loading
+        const timeout = setTimeout(() => {
+            setIsValidSession(false);
+        }, 5000);
+
         const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'customers', customerId);
-        const unsub = onSnapshot(docRef, (docSnap) => {
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                if (data.disabled) setIsValidSession(false);
-                else {
-                    setIsValidSession(true); setSessionData(data);
-                    setSettings({ imgTimer: data.settings?.imgTimer || 5, textTimer: data.settings?.textTimer || 5, imgCount: data.settings?.imgCount || 3, textCount: data.settings?.textCount || 5 });
+        const unsub = onSnapshot(
+            docRef,
+            (docSnap) => {
+                clearTimeout(timeout);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    if (data.disabled) setIsValidSession(false);
+                    else {
+                        setIsValidSession(true); setSessionData(data);
+                        setSettings({ imgTimer: data.settings?.imgTimer || 5, textTimer: data.settings?.textTimer || 5, imgCount: data.settings?.imgCount || 3, textCount: data.settings?.textCount || 5 });
+                    }
+                } else {
+                    setIsValidSession(false);
                 }
-            } else setIsValidSession(false);
-        });
-        return () => unsub();
+            },
+            (error) => {
+                clearTimeout(timeout);
+                console.error('Firestore error:', error);
+                setIsValidSession(false);
+            }
+        );
+        return () => { unsub(); clearTimeout(timeout); };
     }, [customerId]);
 
     useEffect(() => {
@@ -202,7 +219,7 @@ const StageView = ({ customerId }) => {
                 <div className="w-[30%] h-full flex flex-col justify-center items-center pl-8 relative">
                     <div className="flex flex-col w-full items-center gap-6">
                         {imgSlots.map((item, index) => (
-                            <div key={index} className="relative w-full flex justify-center pointer-events-auto">
+                            <div key={index} className="relative w-full flex justify-left pointer-events-auto">
                                 {item && (
                                     <div key={item.key} className={`relative bg-white p-3 pb-3 transition-all duration-1000 flex flex-col items-center shadow-2xl ${item.anim}`} style={{ width: 'fit-content', maxWidth: '100%', transform: `rotate(${item.rotation}deg)` }}>
                                         <div className="bg-gray-100 mb-2 shrink-0">
@@ -232,7 +249,7 @@ const StageView = ({ customerId }) => {
                                     <div key={item.key} className={`bg-white/75 backdrop-blur-md p-4 rounded-xl text-black shadow-xl border-l-4 border-blue-500 flex flex-col w-fit max-w-full transition-all duration-1000 ${item.anim}`}>
                                         {item.isNew && <div className="self-end -mt-2 -mr-2 mb-1 bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow">NEW</div>}
                                         <div className={`font-bold mb-1 leading-snug break-words text-right ${item.text && item.text.length > 50 ? 'text-lg' : 'text-3xl'}`}>"{String(item.text || '')}"</div>
-                                        <div className="text-right text-gray-600 text-xs font-bold uppercase">@{String(item.sender)}</div>
+                                        <div className="text-right text-gray-600 text-xs font-bold ">@{String(item.sender)}</div>
                                     </div>
                                 )}
                             </div>
