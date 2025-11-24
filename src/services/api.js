@@ -19,7 +19,8 @@ export const uploadFileToS3 = async (file, customerId) => {
         body: JSON.stringify({
             fileName: file.name,
             fileType: file.type,
-            folder: customerId
+            folder: customerId,
+            fileSize: file.size
         })
     });
 

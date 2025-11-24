@@ -89,7 +89,10 @@ const authenticateAdmin = async (req, res, next) => {
 // 1. Get Pre-signed URL for S3 Upload
 app.post('/api/upload/sign', async (req, res) => {
     try {
-        const { fileName, fileType, folder } = req.body;
+        const { fileName, fileType, folder, fileSize } = req.body;
+        if (fileSize && fileSize > 2 * 1024 * 1024) {
+            return res.status(400).json({ error: 'File too large. Maximum 2MB allowed.' });
+        }
         if (!fileName || !fileType) return res.status(400).json({ error: 'Missing fileName or fileType' });
 
         const safeFolder = folder ? folder.replace(/[^a-zA-Z0-9-_]/g, '') : 'default';
