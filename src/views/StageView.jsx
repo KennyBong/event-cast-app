@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { doc, onSnapshot, query, collection, where } from 'firebase/firestore';
 import { Siren, Maximize } from 'lucide-react';
 import { db } from '../firebase';
+import { socket, joinSession } from '../services/socket';
 
 const BROADCAST_CHANNEL_NAME = 'event_stage_sync';
 const DEFAULT_SETTINGS = { imgTimer: 5, textTimer: 5, imgCount: 3, textCount: 5 };
@@ -106,18 +107,17 @@ const StageView = ({ customerId }) => {
             setImgSlots(prev => prev.map(slot => slot && approvedImgIds.has(slot.id) ? slot : null));
             setTextSlots(prev => prev.map(slot => slot && approvedTextIds.has(slot.id) ? slot : null));
         });
-        const eq = query(collection(db, 'artifacts', appId, 'public', 'data', 'emojis'), where('customerId', '==', customerId));
-        const unsubE = onSnapshot(eq, (snap) => {
-            snap.docChanges().forEach(c => {
-                if (c.type === 'added' && c.doc.data().timestamp?.seconds > (Date.now() / 1000 - 5)) {
-                    const id = c.doc.id;
-                    const emojiStr = typeof c.doc.data().emoji === 'string' ? c.doc.data().emoji : '👍';
-                    setEmojis(p => [...p, { id, emoji: emojiStr, left: Math.random() * 80 + 10 }].slice(-25));
-                    setTimeout(() => setEmojis(p => p.filter(e => e.id !== id)), 3000);
-                }
-            });
-        });
-        return () => { unsubscribe(); unsubE(); };
+        // Socket.io for Emojis
+        joinSession(customerId);
+        const handleNewEmoji = (data) => {
+            const id = Math.random().toString(36);
+            const emojiStr = typeof data.emoji === 'string' ? data.emoji : '👍';
+            setEmojis(p => [...p, { id, emoji: emojiStr, left: Math.random() * 80 + 10 }].slice(-25));
+            setTimeout(() => setEmojis(p => p.filter(e => e.id !== id)), 3000);
+        };
+        socket.on('new_emoji', handleNewEmoji);
+
+        return () => { unsubscribe(); socket.off('new_emoji', handleNewEmoji); };
     }, [customerId, isValidSession]);
 
     useEffect(() => {

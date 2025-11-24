@@ -144,7 +144,7 @@ const ModeratorView = ({ customerId, customerData }) => {
     const changeAudioVolume = (val) => { setAudioVolume(val); broadcastChannel.current.postMessage({ action: 'SET_AUDIO_VOLUME', payload: val }); };
     const toggleOverlays = () => { const newState = !overlaysOn; setOverlaysOn(newState); broadcastChannel.current.postMessage({ action: 'TOGGLE_OVERLAYS', payload: newState }); };
     const updateStatus = async (id, status) => { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'messages', id), { status }); };
-    const deleteMessage = async (id) => { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'messages', id)); };
+    const deleteMessage = async (id) => { await updateStatus(id, 'rejected'); };
 
     const generateAiVariant = async (msg) => { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'messages', msg.id), { text: `AI: "Look at this legend! ${msg.sender} is stealing the show!"`, aiEnhanced: true }); };
 

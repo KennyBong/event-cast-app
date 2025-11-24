@@ -285,7 +285,39 @@ app.delete('/api/admin/customers/:id', authenticateAdmin, async (req, res) => {
     }
 });
 
+// --- SOCKET.IO SETUP ---
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+    cors: {
+        origin: "*", // Allow all origins for now
+        methods: ["GET", "POST"]
+    }
+});
+
+io.on('connection', (socket) => {
+    console.log('User connected:', socket.id);
+
+    socket.on('join_room', (room) => {
+        socket.join(room);
+        console.log(`User ${socket.id} joined room: ${room}`);
+    });
+
+    socket.on('send_emoji', (data) => {
+        // data: { customerId, emoji }
+        // Broadcast to everyone in the room (StageView)
+        io.to(data.customerId).emit('new_emoji', data);
+    });
+
+    socket.on('disconnect', () => {
+        console.log('User disconnected:', socket.id);
+    });
+});
+
+// Use httpServer.listen instead of app.listen
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+httpServer.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });

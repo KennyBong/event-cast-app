@@ -4,6 +4,7 @@ import { AlertCircle, ImagePlus, X } from 'lucide-react';
 import { db } from '../firebase';
 import ImageCropper from '../components/ImageCropper';
 import { uploadFileToS3, submitMessage } from '../services/api';
+import { sendEmojiSocket } from '../services/socket';
 
 const EMOJIS = ['❤️', '🔥', '👏', '😂', '😮', '🎉'];
 const appId = 'my-event-v1';
@@ -172,8 +173,9 @@ const AttendeeView = ({ customerId, user }) => {
         setIsSubmitting(false);
     };
 
-    const sendEmoji = async (emoji) => {
-        try { await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'emojis'), { customerId, emoji, timestamp: serverTimestamp() }); showToast('success', `Sent ${emoji}`); } catch (err) { console.error(err); }
+    const sendEmoji = (emoji) => {
+        sendEmojiSocket(customerId, emoji);
+        showToast('success', `Sent ${emoji}`);
     };
 
     if (isValidSession === false) return <div className="h-screen bg-gray-900 flex items-center justify-center text-white p-6"><AlertCircle size={48} className="text-red-500 mb-4" /><div className="text-xl">Event Not Found</div></div>;
@@ -220,7 +222,7 @@ const AttendeeView = ({ customerId, user }) => {
                     )}
                 </div>
             </div>
-            <div className="absolute bottom-0 left-0 right-0 bg-white/90 backdrop-blur border-t border-gray-200 p-3 pb-6 safe-area-pb w-full">
+            <div className="absolute bottom-6 left-4 right-4 rounded-2xl bg-white/90 backdrop-blur border border-gray-200 p-3 pb-3 shadow-2xl safe-area-pb z-50">
                 <div className="flex justify-between gap-2 overflow-x-auto no-scrollbar w-full px-2">
                     {EMOJIS.map(e => (<button key={e} onClick={() => sendEmoji(e)} className="text-2xl w-10 h-10 flex-shrink-0 flex items-center justify-center bg-gray-100 rounded-full hover:bg-blue-100 hover:scale-110 transition">{e}</button>))}
                 </div>
