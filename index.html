@@ -8,6 +8,23 @@
     <!-- 🟢 THE EASY FIX: Load Tailwind directly from the web -->
     <!-- This replaces the need for npm install/npx init -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- ⚠️ CRITICAL FIX: Ensure #root fills the body entirely -->
+    <style>
+      /* Ensure HTML and Body use full viewport height */
+      html, body, #root {
+        height: 100%;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      /* This ensures the React root element always spans the full viewport */
+      #root {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh; /* Fallback for older browsers */
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

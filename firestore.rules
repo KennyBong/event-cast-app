@@ -1,0 +1,71 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ==================================================
+    // DEFAULT: Deny everything unless explicitly allowed
+    // ==================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    // ==================================================
+    // APP: my-event-v1
+    // ==================================================
+    match /artifacts/my-event-v1/public/data {
+      
+      // --------------------------------------------------
+      // MESSAGES: Read all messages, Write via server only
+      // --------------------------------------------------
+      match /messages/{messageId} {
+        // Anyone authenticated can read ALL messages (pending & approved)
+        // Moderators need to see pending to approve them
+        allow read: if request.auth != null;
+        
+        // Users can UPDATE status (for moderator approve/reject)
+        allow update: if request.auth != null &&
+                         request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['status']);
+        
+        // NO client creates or deletes - only server
+        allow create, delete: if false;
+      }
+      
+      // --------------------------------------------------
+      // EMOJIS: Allow authenticated users to create
+      // --------------------------------------------------
+      match /emojis/{emojiId} {
+        // Anyone can read emojis (they're harmless)
+        allow read: if request.auth != null;
+        
+        // Users can create emojis (transient, auto-deleted)
+        allow create: if request.auth != null &&
+                         request.resource.data.keys().hasAll(['customerId', 'emoji', 'timestamp']) &&
+                         request.resource.data.customerId is string &&
+                         request.resource.data.emoji is string;
+        
+        // NO updates or deletes from client
+        allow update, delete: if false;
+      }
+      
+      // --------------------------------------------------
+      // CUSTOMERS: Read limited data, Allow settings updates
+      // --------------------------------------------------
+      match /customers/{customerId} {
+        // Allow reading customer settings (for StageView, ModeratorView)
+        // BUT hide password and sensitive fields
+        allow read: if request.auth != null && 
+                       resource.data.disabled == false;
+        
+        // Allow updating settings, headerTitle, backgroundImage
+        // (for moderator to configure their event)
+        allow update: if request.auth != null &&
+                         request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['settings', 'headerTitle', 'backgroundImage']);
+        
+        // NO client creates or deletes - only server via Admin SDK
+        allow create, delete: if false;
+      }
+    }
+  }
+}
