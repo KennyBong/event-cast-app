@@ -9,13 +9,115 @@ import fs from 'fs';
 
 dotenv.config();
 
-// ... (rest of imports)
+// Initialize Express app
+const app = express();
+app.use(cors());
+app.use(express.json());
 
-// ... (existing code)
+// Initialize Firebase Admin
+let serviceAccount;
+try {
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+        // Use environment variable in production (Cloud Run)
+        console.log('Using Firebase credentials from environment variable');
+        serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    } else {
+        // Use file in local development
+        console.log('Using Firebase credentials from service-account.json');
+        serviceAccount = JSON.parse(fs.readFileSync('./service-account.json', 'utf8'));
+    }
+} catch (error) {
+    console.error('Error reading service account:', error);
+    process.exit(1);
+}
+
+initializeApp({
+    credential: cert(serviceAccount)
+});
+
+const db = getFirestore();
+const appId = 'my-event-v1'; // Your app ID
+
+// Initialize S3 Client
+const s3Client = new S3Client({
+    region: process.env.AWS_REGION || 'ap-southeast-1',
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    }
+});
+
+// Authentication Middleware
+const authenticateAdmin = async (req, res, next) => {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Basic ')) {
+            return res.status(401).json({ error: 'Missing or invalid authorization header' });
+        }
+
+        const base64Credentials = authHeader.split(' ')[1];
+        const credentials = Buffer.from(base64Credentials, 'base64').toString('utf-8');
+        const [username, password] = credentials.split(':');
+
+        // Fetch admin user from Firestore
+        const adminDoc = await db.collection('artifacts').doc(appId)
+            .collection('public').doc('data')
+            .collection('customers').doc(username).get();
+
+        if (!adminDoc.exists) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+
+        const adminData = adminDoc.data();
+
+        // Check password and role
+        if (adminData.password !== password) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+
+        if (!adminData.role || (!adminData.role.startsWith('admin'))) {
+            return res.status(403).json({ error: 'Insufficient permissions' });
+        }
+
+        // Attach user info to request
+        req.user = {
+            id: username,
+            role: adminData.role,
+            ...adminData
+        };
+
+        next();
+    } catch (error) {
+        console.error('Authentication error:', error);
+        res.status(500).json({ error: 'Authentication failed' });
+    }
+};
 
 // 1. Get Pre-signed URL for S3 Upload
 app.post('/api/upload/sign', async (req, res) => {
-    // ... (existing upload sign logic)
+    try {
+        const { fileName, fileType, customerId } = req.body;
+
+        if (!fileName || !fileType || !customerId) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        const key = `uploads/${customerId}/${Date.now()}-${fileName}`;
+
+        const command = new PutObjectCommand({
+            Bucket: process.env.S3_BUCKET_NAME,
+            Key: key,
+            ContentType: fileType
+        });
+
+        const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+        const fileUrl = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION || 'ap-southeast-1'}.amazonaws.com/${key}`;
+
+        res.json({ signedUrl, fileUrl });
+    } catch (error) {
+        console.error('S3 Upload Sign Error:', error);
+        res.status(500).json({ error: 'Failed to generate upload URL' });
+    }
 });
 
 // 1.5 Get Pre-signed URL for S3 Read (Viewing)

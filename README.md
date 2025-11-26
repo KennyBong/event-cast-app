@@ -1,16 +1,93 @@
-# React + Vite
+# Event Cast
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A real-time event management and message display application with AWS S3 integration and Firebase backend.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Real-time message display with Socket.IO
+- Image upload to AWS S3 with pre-signed URLs
+- Firebase Firestore for data persistence
+- Multiple view modes: Attendee, Moderator, Stage, and Recap
+- Admin panel for customer management
+- Emoji reactions with real-time broadcasting
 
-## React Compiler
+## Project Structure
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```
+event-cast_2/
+├── server/              # Backend Node.js server
+│   ├── index.js        # Main server file
+│   ├── Dockerfile      # Container configuration
+│   └── package.json    # Server dependencies
+├── src/                # Frontend React application
+│   ├── views/          # Different view components
+│   ├── services/       # API and Firebase services
+│   └── App.jsx         # Main application
+└── deploy-cloud-run.ps1  # Deployment script
+```
 
-## Expanding the ESLint configuration
+## Quick Start - Development
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### Prerequisites
+- Node.js 18+
+- AWS account with S3 bucket
+- Firebase project with Firestore
+- Google Cloud account (for deployment)
+
+### Local Development
+
+1. **Install dependencies:**
+```bash
+npm install
+cd server && npm install
+```
+
+2. **Configure environment variables:**
+Create `server/.env` with:
+```env
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+AWS_REGION=ap-southeast-1
+S3_BUCKET_NAME=your_bucket_name
+```
+
+3. **Run the server:**
+```bash
+cd server
+npm run dev
+```
+
+4. **Run the client:**
+```bash
+npm run dev
+```
+
+## Deployment to Google Cloud Run
+
+See [DEPLOY.md](./DEPLOY.md) for detailed deployment instructions.
+
+### Quick Deploy:
+
+1. Set AWS credentials:
+```powershell
+$env:AWS_ACCESS_KEY_ID = "your_key"
+$env:AWS_SECRET_ACCESS_KEY = "your_secret"
+$env:S3_BUCKET_NAME = "your_bucket"
+```
+
+2. Deploy:
+```powershell
+.\deploy-cloud-run.ps1
+```
+
+## Architecture
+
+- **Frontend**: React + Vite
+- **Backend**: Express.js + Socket.IO
+- **Database**: Firebase Firestore
+- **Storage**: AWS S3
+- **Hosting**: Google Cloud Run (backend), Firebase Hosting (frontend)
+
+## License
+
+MIT
